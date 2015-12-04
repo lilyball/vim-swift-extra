@@ -143,8 +143,7 @@ function! s:Emit(dict, tab, type, args)
 				setl filetype=asm
 				let extension='s'
 			elseif a:type == 'sil' || a:type == 'silgen'
-				" we don't have a SIL filetype yet
-				setl filetype=
+				setl filetype=sil
 				let extension='sil'
 			elseif a:type == 'objc-header'
 				setl filetype=objc
