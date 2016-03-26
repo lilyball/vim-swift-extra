@@ -20,8 +20,8 @@ let s:source_device = {
             \ 'name': 'swift/device',
             \ 'hooks': {},
             \ 'action_table': {},
+            \ 'syntax': 'uniteSource__SwiftDevice',
             \ 'default_action': 'set_global',
-            \ 'is_grouped': 1,
             \ 'description': 'iOS Simulator devices for use with Swift'
             \}
 
@@ -32,11 +32,32 @@ function! s:source_device.gather_candidates(args, context) "{{{
         call unite#print_source_error('Error fetching sim device info', self.name)
         return []
     endif
-    return map(copy(deviceInfo.devices), "{ 'word': v:val.uuid, 'abbr': v:val.name, 'group': v:val.runtime.name }")
+    " sort devices into per-runtime buckets
+    let runtimes = {}
+    for item in deviceInfo.devices
+        if has_key(runtimes, item.runtime.identifier)
+            let runtime = runtimes[item.runtime.identifier]
+        else
+            let runtime = copy(item.runtime)
+            let runtime.devices = []
+            let runtimes[item.runtime.identifier] = runtime
+        endif
+        call add(runtime.devices, item)
+    endfor
+    " sort the buckets
+    let runtimeList = sort(values(runtimes), "s:sort_runtime")
+    for item in runtimeList
+        call sort(item.devices, "s:sort_device")
+    endfor
+    " return each bucket as a list of devices
+    let results = []
+    for item in runtimeList
+        call extend(results, map(item.devices, '{ ''word'': v:val.uuid, ''abbr'': v:val.name, ''group'': v:val.runtime.name }'))
+    endfor
+    return results
 endfunction "}}}
 
 function! s:source_device.hooks.on_post_filter(args, context) "{{{
-    let g:swift_unite_candidates = deepcopy(a:context.candidates)
     for candidate in a:context.candidates
         if get(candidate, 'is_dummy')
             " group name
@@ -44,9 +65,58 @@ function! s:source_device.hooks.on_post_filter(args, context) "{{{
                         \ '-- ' . candidate.word . ' --'
         else
             let candidate.abbr =
-                        \ '  ' . candidate.abbr
+                        \ '  ' . candidate.abbr . ' (' . candidate.group . ')'
         endif
     endfor
+endfunction "}}}
+
+function! s:source_device.hooks.on_syntax(args, context) "{{{
+    syntax match uniteSource__SwiftDevice_Runtime /([^)]*)/
+                \ contained containedin=uniteSource__SwiftDevice
+    highlight default link uniteSource__SwiftDevice_Runtime Comment
+endfunction "}}}
+
+function! s:sort_runtime(a, b) "{{{
+    let aName = s:first_word(a:a.name)
+    let bName = s:first_word(a:b.name)
+    if aName == bName
+        " sort by number descending
+        let aVersion = str2float(a:a.version)
+        let bVersion = str2float(a:b.version)
+        if aVersion < bVersion
+            return 1
+        elseif aVersion > bVersion
+            return -1
+        else
+            return 0
+        endif
+    else
+        " sort by name ascending
+        if aName < bName
+            return -1
+        elseif aName > bName
+            return 1
+        else
+            return 0
+        endif
+    endif
+endfunction "}}}
+function! s:sort_device(a, b) "{{{
+    if a:a.name < a:b.name
+        return -1
+    elseif a:a.name > a:b.name
+        return 1
+    else
+        return 0
+    endif
+endfunction "}}}
+function! s:first_word(s) "{{{
+    let space = stridx(a:s, " ")
+    if space != -1
+        return strpart(a:s, 0, space)
+    else
+        return a:s
+    endif
 endfunction "}}}
 
 " Actions {{{
