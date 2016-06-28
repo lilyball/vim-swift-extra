@@ -361,7 +361,8 @@ function! swift#platform#argsForPlatformInfo(platformInfo)
     " know why. This should be harmless when not using xctest.
     let args += ['-lswiftCore']
     if a:platformInfo.platform == 'macosx'
-        return args
+        let target = 'x86_64-apple-macosx'.sdkInfo.version
+        return extend(args, ['-target', target])
     elseif a:platformInfo.platform == 'iphonesimulator'
         let deviceInfo = a:platformInfo.deviceInfo
         if get(deviceInfo, 'synthesized')
@@ -386,13 +387,16 @@ endfunction
 "   platformPath - String - The SDK platform path.
 " The dictionary values may be "" if an error occurs.
 function! swift#platform#sdkInfo(sdkname)
-    " it's actually faster to run xcrun twice than to run xcodebuild once.
+    " it's actually faster to run xcrun several times than to run xcodebuild once.
     let pathCmd = swift#util#system(swift#xcrun('-show-sdk-path', '-sdk', a:sdkname))
     let platformPathCmd = swift#util#system(swift#xcrun('-show-sdk-platform-path', '-sdk', a:sdkname))
+    let versionCmd = swift#util#system(swift#xcrun('-show-sdk-version', '-sdk', a:sdkname))
     return {
                 \ 'path': pathCmd.status != 0 || empty(pathCmd.output) ? "" : pathCmd.output[0],
                 \ 'platformPath': platformPathCmd.status != 0 || empty(platformPathCmd.output) ?
-                \                 "" : platformPathCmd.output[0]
+                \                 "" : platformPathCmd.output[0],
+                \ 'version': versionCmd.status != 0 || empty(versionCmd.output) ?
+                \            "" : versionCmd.output[0]
                 \}
 endfunction
 
