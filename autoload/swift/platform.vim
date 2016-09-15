@@ -174,7 +174,7 @@ function! swift#platform#simDeviceInfo(...)
         elseif line == '== Devices =='
             let state = 3
         elseif state == 1 " Device Types
-            let matches = matchlist(line, '^\s*\(\w\&[^(]*\w\)\s\+(\([^)]*\))\s*$')
+            let matches = matchlist(line, '^\s*\(\S\&.*\S\)\s\+(\([^)]*\))\s*$')
             if empty(matches)
                 let state = -1
             else
