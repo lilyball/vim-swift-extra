@@ -38,6 +38,9 @@ endfunction
 "     output - List - The combined stdout and stderr lines.
 "     stderr - List - Optional - The stderr lines. Only present if vimproc is
 "                                installed.
+"     outputStr - String - The combined stdout and stderr lines.
+"     stderrStr - String - Optional - The stderr lines. Only present if
+"                                     vimproc is installed.
 if swift#util#has_vimproc()
   function! swift#util#system(args, ...)
     if type(a:args) == type('')
@@ -75,7 +78,8 @@ if swift#util#has_vimproc()
     if !empty(errlines) && empty(errlines[-1])
       call remove(errlines, -1)
     endif
-    return { 'status': status, 'output': outlines, 'stderr': errlines }
+    return { 'status': status, 'output': outlines, 'stderr': errlines,
+          \  'outputStr': output, 'stderrStr': errmsg }
   endfunction
 else
   function! swift#util#system(args, ...)
@@ -93,7 +97,7 @@ else
     if !empty(lines) && empty(lines[-1])
       call remove(lines, -1)
     endif
-    return { 'status': status, 'output': lines }
+    return { 'status': status, 'output': lines, 'outputStr': output }
   endfunction
 endif
 " vim: set et sw=2 ts=2:

@@ -136,7 +136,7 @@ endfunction
 " If an error occurs with simctl, a message is echoed and {} is returned.
 " Unavailable devices are not returned.
 function! swift#platform#simDeviceInfo(...)
-    let args = ['simctl', 'list']
+    let args = ['simctl', 'list', '--json']
     if a:0 > 0
         call add(args, a:1)
     endif
@@ -158,80 +158,46 @@ function! swift#platform#simDeviceInfo(...)
         return {}
     endif
 
+    let root = json_decode(cmd.outputStr)
+
     let deviceTypes = {}
+    for dict in get(root, 'devicetypes', [])
+        let deviceTypes[dict['name']] = dict['identifier']
+    endfor
+
     let runtimes = {}
-    let devices = []
-    let state = 0
-    let deviceRuntime = ''
-    for line in cmd.output
-        if line == ''
-            continue
-        endif
-        if line == '== Device Types =='
-            let state = 1
-        elseif line == '== Runtimes =='
-            let state = 2
-        elseif line == '== Devices =='
-            let state = 3
-        elseif state == 1 " Device Types
-            let matches = matchlist(line, '^\s*\(\S\&.*\S\)\s\+(\([^)]*\))\s*$')
-            if empty(matches)
-                let state = -1
-            else
-                let deviceTypes[matches[1]] = matches[2]
-            endif
-        elseif state == 2 " Runtimes
-            let matches = matchlist(line, '^\s*\(\w\&[^(]*\w\)\s\+(\([0-9.]\+\)\s*-\s*\([^)]\+\))\s\+(\([^)]*\))\%(\s\+(\([^)]*\))\)\?\s*$')
-            if empty(matches)
-                let state = -1
-            elseif matches[5] =~? '^unavailable\>'
-                " the runtime is unavailable
-                " record it for now in case any devices show up for this
-                " runtime, and filter it out after.
-                let runtimes[matches[1]] = { 'unavailable': 1 }
-            else
-                let runtimes[matches[1]] = {
-                            \ 'name': matches[1],
-                            \ 'version': matches[2],
-                            \ 'build': matches[3],
-                            \ 'identifier': matches[4]
-                            \}
-            endif
-        elseif state == 3 " Devices
-            if line =~ '^-- .* --$'
-                let deviceRuntime = matchstr(line, '^-- \zs.*\ze --$')
-            elseif empty(deviceRuntime)
-                let state = -1
-            elseif deviceRuntime =~? '^Unavailable:'
-                " the runtime is unavailable, all devices in here will be
-                " expected to similarly be unavailable.
-            else
-                let matches = matchlist(line, '^\s*\(\w\&[^(]*\w\)\s\+(\([^)]*\))\s\+(\([^)]*\))\%(\s\+(\([^)]*\))\)\?\s*$')
-                if empty(matches)
-                    let state = -1
-                elseif matches[4] =~? '^unavailable\>'
-                    " the device is unavailable
-                else
-                    call add(devices, {
-                                \ 'name': matches[1],
-                                \ 'uuid': matches[2],
-                                \ 'state': matches[3],
-                                \ 'runtime': deviceRuntime
-                                \})
-                endif
-            endif
+    for dict in get(root, 'runtimes', [])
+        if dict['availability'] =~? 'unavailable'
+            " the runtime is unavailable
+            " record it for now in case any devices show up for this
+            " runtime, and filter it out after.
+            let runtimes[dict['name']] = { 'unavailable': 1 }
         else
-            let state = -1
-        endif
-        if state == -1
-            redraw
-            echohl ErrorMsg
-            echom "Error: Unexpected output from shell command `xcrun simctl list`"
-            echohl None
-            echom line
-            return {}
+            let runtimes[dict['name']] = {
+                        \ 'name': dict['name'],
+                        \ 'version': dict['version'],
+                        \ 'build': dict['buildversion'],
+                        \ 'identifier': dict['identifier']
+                        \}
         endif
     endfor
+
+    let devices = []
+    for deviceRuntime in keys(get(root, 'devices', {}))
+        for dict in root['devices'][deviceRuntime]
+            if dict['availability'] =~? 'unavailable'
+                " the device is unavailable
+            else
+                call add(devices, {
+                            \ 'name': dict['name'],
+                            \ 'uuid': dict['udid'],
+                            \ 'state': dict['state'],
+                            \ 'runtime': deviceRuntime
+                            \})
+            endif
+        endfor
+    endfor
+
     for device in devices
         let device.type = get(deviceTypes, device.name, '')
         let device.runtime = get(runtimes, device.runtime, {})
