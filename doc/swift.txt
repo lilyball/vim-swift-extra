@@ -33,6 +33,17 @@ g:swift_developer_dir~
 
 	If unset, the default developer dir is used (see `xcode-select`).
 
+                                                           *g:swift_toolchain*
+g:swift_toolchain~
+	Type: String
+	Set this option to the name of a toolchain to use: >
+	    let g:swift_toolchain='swift-latest'
+<
+	This option may also be specified as *w:swift_toolchain* or
+	*b:swift_toolchain*
+
+	If unset, the default toolchain is used.
+
                                                             *g:swift_platform*
 g:swift_platform~
 	Type: String
