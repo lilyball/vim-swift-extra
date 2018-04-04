@@ -222,6 +222,10 @@ swift/developer_dir                   *swift-unite-source-swift-developer_dir*
 		Candidates are the available Xcode installations on the
 		system. The default action is to set |g:swift_developer_dir|.
 
+swift/toolchain                            *swift-unit-source-swift-toolchain*
+		Candidates are all installed toolchains. The default action is
+		to set |g:swift_toolchain|.
+
 ==============================================================================
 FAQ                                                                *swift-faq*
 

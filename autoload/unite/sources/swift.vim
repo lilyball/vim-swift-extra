@@ -7,11 +7,7 @@ let s:save_cpo = &cpo
 set cpo&vim
 
 function! unite#sources#swift#define() "{{{
-    let sources = [s:source_device]
-    if !empty(s:source_dev_dir)
-        call add(sources, s:source_dev_dir)
-    endif
-    return sources
+    return [s:source_device, s:source_dev_dir, s:source_toolchain]
 endfunction "}}}
 
 " swift/device {{{
@@ -192,6 +188,98 @@ function! s:source_dev_dir.action_table.set_global.func(candidate) "{{{
         unlet! g:swift_developer_dir
     else
         let g:swift_developer_dir = a:candidate.word
+    endif
+endfunction "}}}
+
+" }}}
+
+" }}}
+" swift/toolchain {{{
+
+let s:source_toolchain = {
+            \ 'name': 'swift/toolchain',
+            \ 'hooks': {},
+            \ 'action_table': {},
+            \ 'syntax': 'uniteSource__SwiftToolchain',
+            \ 'default_action': 'set_global',
+            \ 'description': 'Xcode toolchains for use with Swift'
+            \}
+
+function! s:source_toolchain.gather_candidates(args, context) "{{{
+    let result = [{ 'word': '' }]
+    let paths = glob('/Library/Developer/Toolchains/*.xctoolchain', v:true, v:true)
+    call extend(result, map(paths, funcref("s:toolchain_candidate_from_path")))
+    return result
+endfunction
+
+function! s:toolchain_candidate_from_path(key, path)
+    let l:candidate = { 'word': fnamemodify(a:path, ':t:r') }
+    let l:result = swift#util#system(['/usr/libexec/PlistBuddy', '-c', 'Print DisplayName', a:path.'/Info.plist'])
+    if l:result.status == 0 && !empty(l:result.output)
+        if getftype(a:path) == 'link'
+            let l:candidate.displayName = l:result.output[0]
+        else
+            let l:candidate.abbr = l:result.output[0]
+        endif
+    endif
+    return l:candidate
+endfunction "}}}
+
+function! s:source_toolchain.hooks.on_post_filter(args, context) "{{{
+    for candidate in a:context.candidates
+        if !empty(get(candidate, 'displayName', ''))
+            let candidate.abbr = '/' . candidate.word . ' ~(' . candidate.displayName . ')'
+        elseif !empty(get(candidate, 'abbr', ''))
+            let candidate.abbr = '~' . candidate.abbr
+        else
+            " this must be the default action
+            let candidate.abbr = '/~(default)'
+        endif
+    endfor
+endfunction "}}}
+
+function! s:source_toolchain.hooks.on_syntax(args, context) "{{{
+    syntax match uniteSource__SwiftToolchain_Normal /\~.*/
+                \ contained containedin=uniteSource__SwiftToolchain
+    syntax match uniteSource__SwiftToolchain_Normal_Marker /\~/
+                \ contained containedin=uniteSource__SwiftToolchain_Normal
+                \ conceal
+    syntax match uniteSource__SwiftToolchain_Link /\/.*/
+                \ contained containedin=uniteSource__SwiftToolchain
+    syntax match uniteSource__SwiftToolchain_Link_Marker /\//
+                \ contained containedin=uniteSource__SwiftToolchain_Link
+                \ conceal
+    syntax match uniteSource__SwiftToolchain_DisplayName /\~.*/
+                \ contained containedin=uniteSource__SwiftToolchain_Link
+    syntax match uniteSource__SwiftToolchain_DisplayName_Marker /\~/
+                \ contained containedin=uniteSource__SwiftToolchain_DisplayName
+                \ conceal
+    highlight default link uniteSource__SwiftToolchain_DisplayName Comment
+endfunction "}}}
+
+" Actions {{{
+
+let s:source_toolchain.action_table.set_buffer = {
+            \ 'description': 'select the Swift toolchain (buffer-local)',
+            \ 'is_selectable': 0
+            \}
+function! s:source_toolchain.action_table.set_buffer.func(candidate) "{{{
+    if empty(a:candidate.word)
+        unlet! b:swift_toolchain
+    else
+        let b:swift_toolchain = a:candidate.word
+    endif
+endfunction "}}}
+
+let s:source_toolchain.action_table.set_global = {
+            \ 'description': 'select the Swift toolchain (global)',
+            \ 'is_selectable': 0
+            \}
+function! s:source_toolchain.action_table.set_global.func(candidate) "{{{
+    if empty(a:candidate.word)
+        unlet! g:swift_toolchain
+    else
+        let g:swift_toolchain = a:candidate.word
     endif
 endfunction "}}}
 
