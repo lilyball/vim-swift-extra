@@ -308,11 +308,20 @@ function! swift#xcrun(...)
 	let toolchain_name = get(b:, l:key, get(w:, l:key, get(g:, l:key, '')))
 	let toolchain_name = substitute(toolchain_name, '\.xctoolchain$', '', '')
 	if !empty(toolchain_name) && toolchain_name !~ '/'
-		let plist_name = '/Library/Developer/Toolchains/'.toolchain_name.'.xctoolchain/Info.plist'
-		let l:id = swift#cache#read_plist_key(plist_name, 'CFBundleIdentifier')
-		if !empty(l:id)
-			let result .= ' -toolchain '.shellescape(l:id)
-		endif
+		let l:id=''
+		for root in ['/Library/Developer/Toolchains/', '~/Library/Developer/Toolchains/']
+			for prefix in ['', 'swift-']
+				let plist_name = root.prefix.toolchain_name.'.xctoolchain/Info.plist'
+				let l:id = swift#cache#read_plist_key(plist_name, 'CFBundleIdentifier')
+				if !empty(l:id)
+					break
+				endif
+			endfor
+			if !empty(l:id)
+				let result .= ' -toolchain '.shellescape(l:id)
+				break
+			endif
+		endfor
 	endif
 	if a:0 > 0
 		let result .= ' '.join(map(copy(a:000), 'shellescape(v:val)'))

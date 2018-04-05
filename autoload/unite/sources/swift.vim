@@ -207,7 +207,10 @@ let s:source_toolchain = {
 
 function! s:source_toolchain.gather_candidates(args, context) "{{{
     let result = [{ 'word': '' }]
-    let paths = glob('/Library/Developer/Toolchains/*.xctoolchain', v:true, v:true)
+    let paths = extend(
+                \glob('/Library/Developer/Toolchains/*.xctoolchain', v:true, v:true),
+                \glob('~/Library/Developer/Toolchains/*.xctoolchain', v:true, v:true)
+                \)
     call extend(result, map(paths, funcref("s:toolchain_candidate_from_path")))
     return result
 endfunction
