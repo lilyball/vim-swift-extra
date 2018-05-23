@@ -200,7 +200,7 @@ function! swift#platform#simDeviceInfo(...)
 
     for device in devices
         let device.type = get(deviceTypes, device.name, '')
-        let device.runtime = get(runtimes, device.runtime, {})
+        let device.runtime = get(runtimes, device.runtime, { 'unavailable': 1 })
     endfor
     return {
                 \ 'devices': filter(devices, 'get(v:val.runtime, "unavailable", 0) == 0'),
