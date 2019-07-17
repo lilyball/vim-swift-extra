@@ -165,46 +165,42 @@ function! swift#platform#simDeviceInfo(...)
         let deviceTypes[dict['name']] = dict['identifier']
     endfor
 
-    let runtimes = {}
+    let runtimes = []
+    " Older versions of Xcode used runtime name instead of identifier, so
+    " we'll record each runtime using two keys.
+    let runtimeMap = {}
     for dict in get(root, 'runtimes', [])
-        if dict['availability'] =~? 'unavailable'
-            " the runtime is unavailable
-            " record it for now in case any devices show up for this
-            " runtime, and filter it out after.
-            let runtimes[dict['name']] = { 'unavailable': 1 }
-        else
-            let runtimes[dict['name']] = {
+        if dict['isAvailable']
+            let l:entry = {
                         \ 'name': dict['name'],
                         \ 'version': dict['version'],
                         \ 'build': dict['buildversion'],
                         \ 'identifier': dict['identifier']
                         \}
+            call add(runtimes, l:entry)
+            let runtimeMap[l:entry.identifier] = l:entry
+            let runtimeMap[l:entry.name] = l:entry
         endif
     endfor
 
     let devices = []
-    for deviceRuntime in keys(get(root, 'devices', {}))
-        for dict in root['devices'][deviceRuntime]
-            if dict['availability'] =~? 'unavailable'
-                " the device is unavailable
-            else
+    for [deviceRuntime, runtimeDevices] in items(get(root, 'devices', {}))
+        for dict in runtimeDevices
+            if dict['isAvailable'] && has_key(runtimeMap, deviceRuntime)
                 call add(devices, {
                             \ 'name': dict['name'],
+                            \ 'type': get(deviceTypes, dict['name'], ''),
                             \ 'uuid': dict['udid'],
                             \ 'state': dict['state'],
-                            \ 'runtime': deviceRuntime
+                            \ 'runtime': runtimeMap[deviceRuntime]
                             \})
             endif
         endfor
     endfor
 
-    for device in devices
-        let device.type = get(deviceTypes, device.name, '')
-        let device.runtime = get(runtimes, device.runtime, { 'unavailable': 1 })
-    endfor
     return {
-                \ 'devices': filter(devices, 'get(v:val.runtime, "unavailable", 0) == 0'),
-                \ 'runtimes': filter(values(runtimes), 'get(v:val, "unavailable", 0) == 0')
+                \ 'devices': devices,
+                \ 'runtimes': runtimes
                 \}
 endfunction
 
